@@ -41,7 +41,10 @@ const H={
  play(R,p,m){if(R.phase!='trial'||R.pcard||fined(p))return;const side=R.roles.pros==p.id?'pros':R.roles.def==p.id?'def':null;if(!side||R.lamp!=side)return;
   const h=R.hands[p.id]||[],i=h.findIndex(c=>c.id==m.id);if(i<0)return;const c=h.splice(i,1)[0];R.pcard={...c,side,by:p.id};
   R.proj={id:Date.now(),side,what:c.t,when:'',where:'',who:'',card:c.d,lies:0};R.photo=null;all(R,{t:'ev',id:R.proj.id,photo:null})},
- rule(R,p,m){if(R.phase!='trial'||!R.pcard||R.roles.judge!=p.id)return;const c=R.pcard;R.pcard=null;R.log.push({side:c.side,text:c.t+(m.ok?' ✓':' ✗')});all(R,{t:'fx',kind:m.ok?'yes':'no'})},
+ rule(R,p,m){if(R.phase!='trial'||!R.pcard||R.roles.judge!=p.id)return;const c=R.pcard;R.pcard=null;R.log.push({side:c.side,text:c.t+(m.ok?' ✓':' ✗')});if(R.lamp=='pros'||R.lamp=='def'){R.lamp=R.lamp=='pros'?'def':'pros';R.lampEnd=Date.now()+R.opts.speech*1000}all(R,{t:'fx',kind:m.ok?'yes':'no'})},
+ swap(R,p){if(R.phase=='trial'&&R.roles.judge==p.id&&(R.lamp=='pros'||R.lamp=='def')){R.lamp=R.lamp=='pros'?'def':'pros';R.lampEnd=Date.now()+R.opts.speech*1000}},
+ gong(R,p){if(R.phase=='trial'&&R.roles.judge==p.id&&!rl(p,'lg',3000)){if(R.lamp=='pros'||R.lamp=='def'){R.lamp=R.lamp=='pros'?'def':'pros';R.lampEnd=Date.now()+R.opts.speech*1000}all(R,{t:'fx',kind:'gong'})}},
+ recess(R,p){if(R.phase=='trial'&&R.roles.judge==p.id&&!rl(p,'lr',3000)){R.lamp='none';all(R,{t:'recess'})}},
  say(R,p,m){const t=str(m.text,40);if(t&&!fined(p)&&!rl(p,'ls',700))all(R,{t:'say',by:p.id,text:t})},
  stmt(R,p,m){if(R.phase!='trial'||R.lamp=='none'||R.roles[R.lamp]!=p.id||fined(p))return;
   const ph=typeof m.photo=='string'&&m.photo.startsWith('data:image/')&&m.photo.length<500000?m.photo:null;
