@@ -1,6 +1,6 @@
 const http=require('http'),fs=require('fs'),path=require('path'),{WebSocketServer}=require('ws');
 const J=JSON.stringify,rooms={},shuffle=a=>[...a].sort(()=>Math.random()-.5),rnd=a=>a[Math.random()*a.length|0],find=(R,id)=>R.players.find(p=>p.id==id);
-const ROLES=['judge','pros','def','witness','journalist','victim','bailiff'],str=(v,n)=>String(v||'').trim().replace(/[<>]/g,'').slice(0,n);
+const ROLES=['judge','pros','def',null,'journalist','bailiff','victim'],str=(v,n)=>String(v||'').trim().replace(/[<>]/g,'').slice(0,n);
 const PRO=['Крошки на месте|Крошки от торта нашли ровно там, где стоял обвиняемый.','Свидетель с кухни|Свидетель клянётся, что слышал хруст глубокой ночью.','Липкие пальцы|Отпечатки пальцев сладкие и подозрительно знакомые.','Выдал смех|Обвиняемый хихикал при слове «десерт».','Алиби позже|Алиби появилось только после допроса.','Запись с камеры|Камера в коридоре показывает тень подозрительной формы.','Чат против него|В чате он написал «ничего не знаю» слишком быстро.','Чужие тапки|Тапки обвиняемого нашли рядом с местом событий.','Запах вины|Свидетели отметили странный запах уверенности.','Нервный глоток|Он выпил воды ровно перед допросом.','Тайный список|У него нашли список «что можно взять без спроса».','Лёгкий холодильник|Холодильник стал легче ровно на одну порцию.','Версия плывёт|Его рассказ каждый раз звучит по-новому.','Блеск в глазах|Глаза блестели, когда заговорили про это.','Старый рецидив|В прошлом году его уже замечали у холодильника.','Подозрительный зевок|Он зевнул ровно в момент оглашения обвинения.','Забытая обёртка|Обёртка с его инициалами нашлась в кармане.','Громкое молчание|На прямой вопрос он молчал целых три секунды.','Слишком чистая тарелка|Тарелка вымыта до блеска, будто что-то скрывают.','Показания кота|Кот отказался смотреть обвиняемому в глаза.'];
 const DEF=['Я был в другом месте|Ровно в это время я стоял в очереди за хлебом.','Это сквозняк|Сквозняк виноват во всём, он в доме давно.','Клевета соседа|У соседа на меня зуб со времён шашлыков.','Справка от бабушки|Бабушка подтвердит: я хороший человек.','Отпечатки подбросили|Любой мог обнять меня за руку.','Я спал|Свидетели храпа подтвердят мой сон.','Правая рука не знала|Правая рука не в курсе, что делала левая.','Видео размытое|На записи пятно, может, это просто тень.','Кот не свидетель|Кот давно лжёт в других делах.','Это была диета|Я проверял, не пуст ли холодильник, из заботы.','Аллергия|Я такое не ем, у меня аллергия на обвинения.','Пятно кетчупа|Это был не торт, а кетчуп, и он не мой.','Слишком очевидно|Будь я виноват, я бы лучше спрятался.','Алиби от соседа|Сосед видел меня у окна целых десять минут.','Я исправился|Я каялся в прошлом году, значит, всё в порядке.','Сложный период|У меня непростое время, и вообще настроение.','Подставили!|Меня подставил тот, кто громче всех кричит.','Свидетель врёт|Он путает числа, дни недели и своего кота.','Совпадение|Совпадения случаются, а вот суды лишь иногда.','Я просто спросил|Я только спросил, где торт, а виноватым оказался сам.'];
 const CRIMES=['Съел последний кусок пиццы','Не вернул зарядку','Прочитал сообщение и не ответил','Пересолил общий ужин','Забыл про день рождения','Рассказал спойлер к сериалу','Занял чужое место в машине','Выпил чужой кофе','Опоздал на сорок минут','Взял чужой наушник','Включил музыку в три часа ночи','Рассказал секрет в чате'];
@@ -13,10 +13,10 @@ function send(R){for(const p of R.players)if(p.on&&p.ws.readyState==1)p.ws.send(
  ms:R.lamp=='none'?0:Math.max(0,(R.lampEnd||0)-Date.now()),sopts:R.roles.judge==p.id?R.sopts:null,hasOpts:!!R.sopts,sentence:R.sentence,verdict:R.verdict,
  wrote:R.wrote.length,iWrote:R.wrote.includes(p.id),left:R.cases.length,
  prepMs:R.phase=='prep'?Math.max(0,R.prepEnd-Date.now()):0,charge:R.phase=='prep'?null:R.charge,acc:R.phase=='prep'?null:R.accused,picked:Object.keys(R.picks),hasCharge:!!R.charge,
- hand:R.hands[p.id]||[],pcard:R.pcard,me:p.id}}))}
+ hand:R.hands[p.id]||[],pcard:R.pcard,wit:R.wit||null,wq:R.wq||null,wans:R.wans||null,wdone:R.wans&&R.wans.done?Date.now()-R.wans.at:-1,me:p.id}}))}
 function trial(R){const n=R.players.length,seq=R.opts.assign=='random'?shuffle(R.players):R.players.map((_,i)=>R.players[(R.round+i)%n]);R.roles={};
- ROLES.filter(r=>({witness:R.opts.wit,journalist:R.opts.jour,bailiff:R.opts.bail})[r]!==0).forEach((r,i)=>{if(i<n)R.roles[r]=seq[i].id});
- Object.assign(R,{case:R.cases.pop(),lamp:'none',proj:null,photo:null,log:[],news:[],verdict:null,sopts:null,sentence:null,lampEnd:0,charge:null,accused:null,picks:{},pcard:null,phase:'prep',prepEnd:Date.now()+45000});
+ ROLES.filter(r=>({witness:R.opts.wit,journalist:R.opts.jour,bailiff:R.opts.bail})[r]!==0).forEach((r,i)=>{if(r&&i<n)R.roles[r]=seq[i].id});
+ Object.assign(R,{case:R.cases.pop(),lamp:'none',proj:null,photo:null,log:[],news:[],verdict:null,sopts:null,sentence:null,lampEnd:0,charge:null,accused:null,picks:{},pcard:null,wit:null,wq:null,wans:null,phase:'prep',prepEnd:Date.now()+45000});
  R.players.forEach(p=>p.pen=0);R.hands={[R.roles.pros]:shuffle(POOL.pros).slice(0,10),[R.roles.def]:shuffle(POOL.def).slice(0,10)};
  all(R,{t:'ev',photo:null});clearTimeout(R.tm);R.tm=setTimeout(()=>{finishPrep(R)},45000)}
 function finishPrep(R){if(R.phase!='prep')return;clearTimeout(R.tm);
@@ -37,7 +37,7 @@ const H={
  charge(R,p,m){if(R.phase!='prep'||R.roles.pros!=p.id||R.charge)return;const t=str(m.text,70),w=cands(R).find(q=>q.id==m.who);if(t.length<3||!w)return;R.charge={who:w.id,text:t};chk(R)},
  pick5(R,p,m){if(R.phase!='prep'||![R.roles.pros,R.roles.def].includes(p.id)||R.picks[p.id])return;const h=R.hands[p.id].map(c=>c.id),ids=[...new Set(Array.isArray(m.ids)?m.ids:[])];if(ids.length!=5||!ids.every(i=>h.includes(i)))return;R.picks[p.id]=ids;chk(R)},
  skip(R,p){if(R.host==p.id&&R.phase=='prep')finishPrep(R)},
- lamp(R,p,m){if(R.phase=='trial'&&R.roles.judge==p.id&&['pros','def','witness','none'].includes(m.v)){R.lamp=m.v;R.lampEnd=Date.now()+R.opts.speech*1000}},
+ lamp(R,p,m){if(R.phase=='trial'&&R.roles.judge==p.id&&['pros','def','none'].includes(m.v)){R.lamp=m.v;R.lampEnd=Date.now()+R.opts.speech*1000}},
  play(R,p,m){if(R.phase!='trial'||R.pcard||fined(p))return;const side=R.roles.pros==p.id?'pros':R.roles.def==p.id?'def':null;if(!side||R.lamp!=side)return;
   const h=R.hands[p.id]||[],i=h.findIndex(c=>c.id==m.id);if(i<0)return;const c=h.splice(i,1)[0];R.pcard={...c,side,by:p.id};
   R.proj={id:Date.now(),side,what:c.t,when:'',where:'',who:'',card:c.d,lies:0};R.photo=null;all(R,{t:'ev',id:R.proj.id,photo:null})},
@@ -45,6 +45,12 @@ const H={
  swap(R,p){if(R.phase=='trial'&&R.roles.judge==p.id&&(R.lamp=='pros'||R.lamp=='def')){R.lamp=R.lamp=='pros'?'def':'pros';R.lampEnd=Date.now()+R.opts.speech*1000}},
  gong(R,p){if(R.phase=='trial'&&R.roles.judge==p.id&&!rl(p,'lg',3000)){if(R.lamp=='pros'||R.lamp=='def'){R.lamp=R.lamp=='pros'?'def':'pros';R.lampEnd=Date.now()+R.opts.speech*1000}all(R,{t:'fx',kind:'gong'})}},
  recess(R,p){if(R.phase=='trial'&&R.roles.judge==p.id&&!rl(p,'lr',3000)){R.lamp='none';all(R,{t:'recess'})}},
+ callwit(R,p,m){const q=find(R,m.id);if(R.phase!='trial'||R.roles.judge!=p.id||!R.opts.wit||R.wit||!q||q.id==p.id||q.id==R.roles.pros||q.id==R.roles.def)return;R.wit=q.id;R.wq={};R.wans=null;all(R,{t:'fx',kind:'gong'})},
+ ask(R,p,m){const k=R.roles.pros==p.id?'pros':R.roles.def==p.id?'def':null,t=str(m.text,80);if(R.phase!='trial'||!R.wit||!k||R.wq[k]||t.length<2||fined(p))return;R.wq[k]=t},
+ answer(R,p,m){const t=str(m.text,100);if(R.phase!='trial'||R.wit!=p.id||R.wans||!t||fined(p))return;R.wans={text:t,done:false,ok:false}},
+ wrule(R,p,m){if(R.phase!='trial'||R.roles.judge!=p.id||!R.wans||R.wans.done)return;R.wans.done=true;R.wans.ok=!!m.ok;R.wans.at=Date.now();R.log.push({side:'witness',text:'Свидетель: '+R.wans.text+(m.ok?' ✓':' ✗')});all(R,{t:'fx',kind:m.ok?'yes':'no'})},
+ relwit(R,p){if(R.phase=='trial'&&R.roles.judge==p.id&&R.wit){R.wit=null;R.wq=null;R.wans=null;all(R,{t:'fx',kind:'gong'})}},
+ quill(R,p){if(R.phase=='trial'&&R.roles.journalist==p.id&&!rl(p,'lq',1500))all(R,{t:'fx',kind:'quill',by:p.id})},
  say(R,p,m){const t=str(m.text,40);if(t&&!fined(p)&&!rl(p,'ls',700))all(R,{t:'say',by:p.id,text:t})},
  stmt(R,p,m){if(R.phase!='trial'||R.lamp=='none'||R.roles[R.lamp]!=p.id||fined(p))return;
   const ph=typeof m.photo=='string'&&m.photo.startsWith('data:image/')&&m.photo.length<500000?m.photo:null;
@@ -52,19 +58,20 @@ const H={
   R.photo=ph;R.log.push({side:R.lamp,text:[R.proj.when,R.proj.where,R.proj.what].filter(Boolean).join(' · ')});all(R,{t:'ev',id:R.proj.id,photo:ph})},
  lie(R,p){if(R.phase=='trial'&&R.proj&&!fined(p)&&!rl(p,'ll',2000)){R.proj.lies++;all(R,{t:'lie',by:p.id})}},
  obj(R,p){if(R.phase=='trial'&&(R.roles.pros==p.id||R.roles.def==p.id||R.accused==p.id)&&!fined(p)&&!rl(p,'lo',3000))all(R,{t:'obj',by:p.id})},
- news(R,p,m){const t=str(m.text,100),im=typeof m.img=='string'&&m.img.startsWith('data:image/')&&m.img.length<400000?m.img:null;
-  if(R.phase!='trial'||R.roles.journalist!=p.id||fined(p)||(!t&&!im)||R.news.length>=3)return;R.news.push(t||'Рисунок');R.log.push({side:'news',text:t||'Рисунок'});
+ news(R,p,m){const t=str(m.text,60),im=typeof m.img=='string'&&m.img.startsWith('data:image/')&&m.img.length<400000?m.img:null;
+  if(R.phase!='trial'||R.roles.journalist!=p.id||fined(p)||(!t&&!im)||R.news.length>=3)return;R.news.push(t||'Рисунок');R.log.push({side:'news',text:t||'Рисунок'});{const to=['pros','def'].includes(m.to)?m.to:null,h=to&&R.hands[R.roles[to]];if(h&&t)h.push({id:'n'+Date.now(),t:'Газета: '+t,d:'Срочная новость',w:2,news:1})}
   if(im){R.proj={id:Date.now(),side:'news',what:t,when:'',where:'',who:'',lies:0};R.photo=im;all(R,{t:'ev',id:R.proj.id,photo:im})}all(R,{t:'news',text:t||'Новый рисунок'})},
  hush(R,p){if(R.phase=='trial'&&(R.roles.judge==p.id||R.roles.bailiff==p.id)&&!rl(p,'lh',4000))all(R,{t:'hush'})},
  fine(R,p,m){const q=find(R,m.to);if(R.phase=='trial'&&R.roles.judge==p.id&&q&&q!=p){q.pen=Date.now()+30000;all(R,{t:'fine',to:q.id})}},
  paper(R,p,m){if(R.phase=='trial'&&R.roles.judge!=p.id&&find(R,m.to)&&m.to!=p.id&&!fined(p)&&!rl(p,'lp',2500))all(R,{t:'paper',by:p.id,to:m.to})},
  pet(R,p){if(!rl(p,'lt',1000))all(R,{t:'pet',by:p.id})},
  pick(R,p,m){const o=R.sopts,s=o&&o[+m.i];if(R.phase=='verdict'&&R.roles.judge==p.id&&s){R.sentence=s;R.sents.splice(R.sents.indexOf(s),1);R.sopts=null}},
- verdict(R,p,m){if(R.phase=='trial'&&R.roles.judge==p.id){R.verdict={guilty:!!m.g};R.phase='verdict';R.lamp='none';R.sopts=m.g&&R.sents.length?shuffle(R.sents).slice(0,3):null}},
+ verdict(R,p,m){if(R.phase=='trial'&&R.roles.judge==p.id){R.verdict={guilty:!!m.g};R.phase='verdict';R.lamp='none';R.wit=null;R.sopts=m.g&&R.sents.length?shuffle(R.sents).slice(0,3):null}},
  clear(R,p){if(R.host==p.id){R.proj=null;R.photo=null;all(R,{t:'ev',photo:null})}},
  next(R,p){if(R.host!=p.id||!['prep','charge','trial','verdict'].includes(R.phase))return;clearTimeout(R.tm);R.round++;if(R.cases.length)trial(R);else R.phase='end'},
  again(R,p){if(R.host==p.id&&R.phase=='end'){R.phase='lobby';R.roles={};R.proj=null;R.ready=[]}}
 };
+setInterval(()=>{for(const c in rooms){const R=rooms[c];if(R.wit&&R.wans&&R.wans.done&&Date.now()-R.wans.at>8000&&Date.now()-(R.lb||0)>5000){R.lb=Date.now();const o=R.players.filter(q=>q.id!=R.wit);if(o.length)all(R,{t:'paper',by:rnd(o).id,to:R.wit})}}},1000);
 const srv=http.createServer((q,r)=>{r.writeHead(200,{'content-type':'text/html; charset=utf-8'});fs.createReadStream(path.join(__dirname,'public','index.html')).pipe(r)});
 new WebSocketServer({server:srv,maxPayload:1e6}).on('connection',ws=>{let R,me;const bad=e=>ws.send(J({t:'err',e}));
  ws.on('message',raw=>{let m;try{m=JSON.parse(raw)}catch{return}
