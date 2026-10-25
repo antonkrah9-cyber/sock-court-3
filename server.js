@@ -3,13 +3,15 @@ const J=JSON.stringify,rooms={},shuffle=a=>[...a].sort(()=>Math.random()-.5),fin
 const ROLES=['judge','pros','def','accused','witness','journalist','victim','bailiff'],str=(v,n)=>String(v||'').trim().slice(0,n);
 const all=(R,m)=>R.players.forEach(p=>p.on&&p.ws.readyState==1&&p.ws.send(J(m)));
 function send(R){for(const p of R.players)if(p.on&&p.ws.readyState==1)p.ws.send(J({t:'s',s:{code:R.code,host:R.host,phase:R.phase,round:R.round,
- players:R.players.map(p=>({id:p.id,name:p.name,hero:p.hero,on:p.on,pen:Math.max(0,(p.pen||0)-Date.now())})),news:R.news,ms:R.lamp=='none'?0:Math.max(0,(R.lampEnd||0)-Date.now()),opts:R.roles.judge==p.id?R.opts:null,hasOpts:!!R.opts,sentence:R.sentence,roles:R.roles,case:R.case,lamp:R.lamp,proj:R.proj,log:R.log,verdict:R.verdict,
+ players:R.players.map(p=>({id:p.id,name:p.name,hero:p.hero,on:p.on,pen:Math.max(0,(p.pen||0)-Date.now())})),news:R.news,opts:R.opts,ready:R.ready,ms:R.lamp=='none'?0:Math.max(0,(R.lampEnd||0)-Date.now()),opts:R.roles.judge==p.id?R.opts:null,hasOpts:!!R.opts,sentence:R.sentence,roles:R.roles,case:R.case,lamp:R.lamp,proj:R.proj,log:R.log,verdict:R.verdict,
  wrote:R.wrote.length,iWrote:R.wrote.includes(p.id),left:R.cases.length,me:p.id}}))}
-function trial(R){const n=R.players.length,seq=R.players.map((_,i)=>R.players[(R.round+i)%n]);R.roles={};
- ROLES.forEach((r,i)=>{if(i<n)R.roles[r]=seq[i].id});R.case=R.cases.pop();R.lamp='none';R.proj=null;R.photo=null;R.log=[];R.news=[];R.players.forEach(p=>p.pen=0);R.opts=null;R.sentence=null;R.lampEnd=0;R.verdict=null;R.phase='trial';all(R,{t:'ev',photo:null})}
+function trial(R){const n=R.players.length,seq=R.opts.assign=='random'?shuffle(R.players):R.players.map((_,i)=>R.players[(R.round+i)%n]);R.roles={};
+ ROLES.filter(r=>({witness:R.opts.wit,journalist:R.opts.jour,bailiff:R.opts.bail})[r]!==0).forEach((r,i)=>{if(i<n)R.roles[r]=seq[i].id});R.case=R.cases.pop();R.lamp='none';R.proj=null;R.photo=null;R.log=[];R.news=[];R.players.forEach(p=>p.pen=0);R.opts=null;R.sentence=null;R.lampEnd=0;R.verdict=null;R.phase='trial';all(R,{t:'ev',photo:null})}
 function go(R){R.cases=shuffle(R.pending);R.round=0;trial(R)}
 const rl=(p,k,ms)=>{if(Date.now()-(p[k]||0)<ms)return true;p[k]=Date.now()},fined=p=>(p.pen||0)>Date.now();
 const H={
+ opts(R,p,m){if(R.host!=p.id||R.phase!='lobby')return;const o=m.o||{},c=R.opts,pk=(k,a)=>{if(a.includes(o[k]))c[k]=o[k]};if(+o.max>=3)c.max=Math.max(R.players.length,Math.min(9,+o.max|0));pk('theme',['plain','royal','space']);pk('mode',['classic','compose','live']);pk('assign',['circle','random']);['wit','jour','bail'].forEach(k=>{if(k in o)c[k]=o[k]?1:0});if([0,30,60].includes(+o.speech))c.speech=+o.speech},
+ ready(R,p){if(R.phase!='lobby'||R.host==p.id)return;const i=R.ready.indexOf(p.id);if(i<0)R.ready.push(p.id);else R.ready.splice(i,1)},
  face(R,p,m){const im=typeof m.img=='string'&&m.img.startsWith('data:image/')&&m.img.length<60000?m.img:null;if(!rl(p,'lf',800)){p.face=im;all(R,{t:'face',id:p.id,img:im})}},
  pick(R,p,m){const o=R.opts,s=o&&o[+m.i];if(R.phase=='verdict'&&R.roles.judge==p.id&&s){R.sentence=s;R.sents.splice(R.sents.indexOf(s),1);R.opts=null}},
  news(R,p,m){const t=str(m.text,100),im=typeof m.img=='string'&&m.img.startsWith('data:image/')&&m.img.length<400000?m.img:null;
@@ -20,10 +22,10 @@ const H={
  paper(R,p,m){if(R.phase=='trial'&&R.roles.judge!=p.id&&find(R,m.to)&&m.to!=p.id&&!fined(p)&&!rl(p,'lp',2500))all(R,{t:'paper',by:p.id,to:m.to})},
  pet(R,p){if(!rl(p,'lt',1000))all(R,{t:'pet',by:p.id})},
  hero(R,p,m){const i=+m.i;if(i>=0&&i<7&&!R.players.some(q=>q!=p&&q.hero==i))p.hero=i},
- begin(R,p){if(R.host==p.id&&R.phase=='lobby'&&R.players.length>=3){R.phase='write';R.pending=[];R.sents=[];R.wrote=[]}},
+ begin(R,p){if(R.host==p.id&&R.phase=='lobby'&&R.players.length>=3&&R.players.every(q=>q.id==R.host||R.ready.includes(q.id))){R.phase='write';R.pending=[];R.sents=[];R.wrote=[]}},
  case(R,p,m){const t=str(m.text,220);if(R.phase!='write'||R.wrote.includes(p.id)||t.length<3)return;R.pending.push(t);{const sn=str(m.sent,100);if(sn.length>=3)R.sents.push(sn)}R.wrote.push(p.id);if(R.wrote.length>=R.players.length)go(R)},
  startnow(R,p){if(R.host==p.id&&R.phase=='write'&&R.pending.length)go(R)},
- lamp(R,p,m){if(R.phase=='trial'&&R.roles.judge==p.id&&['pros','def','witness','none'].includes(m.v)){R.lamp=m.v;R.lampEnd=Date.now()+60000}},
+ lamp(R,p,m){if(R.phase=='trial'&&R.roles.judge==p.id&&['pros','def','witness','none'].includes(m.v)){R.lamp=m.v;R.lampEnd=Date.now()+R.opts.speech*1000}},
  say(R,p,m){const t=str(m.text,40);if(t&&!fined(p)&&!rl(p,'ls',700))all(R,{t:'say',by:p.id,text:t})},
  stmt(R,p,m){if(R.phase!='trial'||R.lamp=='none'||R.roles[R.lamp]!=p.id||fined(p))return;
   const ph=typeof m.photo=='string'&&m.photo.startsWith('data:image/')&&m.photo.length<500000?m.photo:null;
@@ -34,16 +36,16 @@ const H={
  verdict(R,p,m){if(R.phase=='trial'&&R.roles.judge==p.id){R.verdict={guilty:!!m.g};R.phase='verdict';R.lamp='none';R.opts=m.g&&R.sents.length?shuffle(R.sents).slice(0,3):null}},
  clear(R,p){if(R.host==p.id){R.proj=null;R.photo=null;all(R,{t:'ev',photo:null})}},
  next(R,p){if(R.host!=p.id||!['trial','verdict'].includes(R.phase))return;R.round++;if(R.cases.length)trial(R);else R.phase='end'},
- again(R,p){if(R.host==p.id&&R.phase=='end'){R.phase='lobby';R.roles={};R.proj=null}}
+ again(R,p){if(R.host==p.id&&R.phase=='end'){R.phase='lobby';R.roles={};R.proj=null;R.ready=[]}}
 };
 const srv=http.createServer((q,r)=>{r.writeHead(200,{'content-type':'text/html; charset=utf-8'});fs.createReadStream(path.join(__dirname,'public','index.html')).pipe(r)});
 new WebSocketServer({server:srv,maxPayload:1e6}).on('connection',ws=>{let R,me;const bad=e=>ws.send(J({t:'err',e}));
  ws.on('message',raw=>{let m;try{m=JSON.parse(raw)}catch{return}
   if(m.t=='join'){const code=String(m.room||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,5),id=str(m.id,40);if(!id||!code)return;
    let r=rooms[code];if(!r){if(!m.create)return bad('Комната не найдена. Попроси друга прислать ссылку заново');
-    r=rooms[code]={code,players:[],host:id,phase:'lobby',round:0,roles:{},pending:[],cases:[],wrote:[],lamp:'none',log:[],news:[],sents:[],lampEnd:0}}
+    r=rooms[code]={code,players:[],host:id,phase:'lobby',round:0,roles:{},pending:[],cases:[],wrote:[],lamp:'none',log:[],news:[],sents:[],lampEnd:0,ready:[],opts:{max:9,theme:'plain',mode:'classic',assign:'circle',wit:1,jour:1,bail:1,speech:60}}}
    let p=find(r,id);
-   if(p){p.ws=ws;p.on=true}else{if(r.phase!='lobby')return bad('Игра уже идёт');if(r.players.length>=9)return bad('Комната заполнена (максимум 9)');
+   if(p){p.ws=ws;p.on=true}else{if(r.phase!='lobby')return bad('Игра уже идёт');if(r.players.length>=r.opts.max)return bad('Комната заполнена');
     if(!r.players.length)r.host=id;
     p={id,ws,on:true,name:str(m.name,14)||'Игрок',hero:[0,1,2,3,4,5,6].find(i=>!r.players.some(q=>q.hero==i))};r.players.push(p)}
    R=r;me=p;send(R);R.players.forEach(q=>q.face&&ws.send(J({t:'face',id:q.id,img:q.face})));if(R.proj&&R.photo)ws.send(J({t:'ev',id:R.proj.id,photo:R.photo}));return}
