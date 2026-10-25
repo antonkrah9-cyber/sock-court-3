@@ -10,8 +10,11 @@ function trial(R){const n=R.players.length,seq=R.players.map((_,i)=>R.players[(R
 function go(R){R.cases=shuffle(R.pending);R.round=0;trial(R)}
 const rl=(p,k,ms)=>{if(Date.now()-(p[k]||0)<ms)return true;p[k]=Date.now()},fined=p=>(p.pen||0)>Date.now();
 const H={
+ face(R,p,m){const im=typeof m.img=='string'&&m.img.startsWith('data:image/')&&m.img.length<60000?m.img:null;if(!rl(p,'lf',800)){p.face=im;all(R,{t:'face',id:p.id,img:im})}},
  pick(R,p,m){const o=R.opts,s=o&&o[+m.i];if(R.phase=='verdict'&&R.roles.judge==p.id&&s){R.sentence=s;R.sents.splice(R.sents.indexOf(s),1);R.opts=null}},
- news(R,p,m){const t=str(m.text,100);if(R.phase=='trial'&&R.roles.journalist==p.id&&!fined(p)&&t&&R.news.length<3){R.news.push(t);R.log.push({side:'news',text:t});all(R,{t:'news',text:t})}},
+ news(R,p,m){const t=str(m.text,100),im=typeof m.img=='string'&&m.img.startsWith('data:image/')&&m.img.length<400000?m.img:null;
+  if(R.phase!='trial'||R.roles.journalist!=p.id||fined(p)||(!t&&!im)||R.news.length>=3)return;R.news.push(t||'Рисунок');R.log.push({side:'news',text:t||'Рисунок'});
+  if(im){R.proj={id:Date.now(),side:'news',what:t,when:'',where:'',who:'',lies:0};R.photo=im;all(R,{t:'ev',id:R.proj.id,photo:im})}all(R,{t:'news',text:t||'Новый рисунок'})},
  hush(R,p){if(R.phase=='trial'&&(R.roles.judge==p.id||R.roles.bailiff==p.id)&&!rl(p,'lh',4000))all(R,{t:'hush'})},
  fine(R,p,m){const q=find(R,m.to);if(R.phase=='trial'&&R.roles.judge==p.id&&q&&q!=p){q.pen=Date.now()+30000;all(R,{t:'fine',to:q.id})}},
  paper(R,p,m){if(R.phase=='trial'&&R.roles.judge!=p.id&&find(R,m.to)&&m.to!=p.id&&!fined(p)&&!rl(p,'lp',2500))all(R,{t:'paper',by:p.id,to:m.to})},
@@ -43,7 +46,7 @@ new WebSocketServer({server:srv,maxPayload:1e6}).on('connection',ws=>{let R,me;c
    if(p){p.ws=ws;p.on=true}else{if(r.phase!='lobby')return bad('Игра уже идёт');if(r.players.length>=9)return bad('Комната заполнена (максимум 9)');
     if(!r.players.length)r.host=id;
     p={id,ws,on:true,name:str(m.name,14)||'Игрок',hero:[0,1,2,3,4,5,6].find(i=>!r.players.some(q=>q.hero==i))};r.players.push(p)}
-   R=r;me=p;send(R);if(R.proj&&R.photo)ws.send(J({t:'ev',id:R.proj.id,photo:R.photo}));return}
+   R=r;me=p;send(R);R.players.forEach(q=>q.face&&ws.send(J({t:'face',id:q.id,img:q.face})));if(R.proj&&R.photo)ws.send(J({t:'ev',id:R.proj.id,photo:R.photo}));return}
   if(R&&H[m.t]){H[m.t](R,me,m);send(R)}});
  ws.on('close',()=>{if(!R||me.ws!==ws)return;me.on=false;
   if(R.phase=='lobby')R.players=R.players.filter(p=>p!=me);

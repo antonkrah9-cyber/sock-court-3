@@ -1,17 +1,17 @@
 <!doctype html><html lang="ru"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Суд друзей</title>
+<title>Носки в суде</title>
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;800;900&family=Playfair+Display:wght@900&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#3b1a2e;--pan:#58263f;--ink:#fbf1de;--gold:#f2b32c;--red:#e4572e;--dim:#d9bfc8}
+:root{--bg:#3a1520;--pan:#2e1a1a;--ink:#f3e6cc;--gold:#e9b43a;--red:#c93a2a;--dim:#c9a9a0}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:600 16px/1.4 Nunito,system-ui,sans-serif;padding:env(safe-area-inset-top) 12px env(safe-area-inset-bottom);display:flex;justify-content:center}
 main{width:100%;max-width:480px;padding:12px 0 28px}
 h1{font:900 34px/1.05 'Playfair Display',Georgia,serif;margin:10px 0;color:var(--gold)}
-canvas{width:100%;aspect-ratio:360/440;border-radius:16px;display:block;background:#5b2340}
+canvas{width:100%;aspect-ratio:360/440;border-radius:16px;display:block;background:#4a1c28}
 button,input,textarea{font:inherit;border-radius:14px;border:0;padding:12px 16px}
-button{background:var(--gold);color:#3b1a2e;font-weight:900;cursor:pointer;min-height:48px}
-button.alt{background:var(--pan);color:var(--ink)}button.red{background:var(--red);color:#fff}button.on{outline:3px solid #fff}
+button{background:var(--gold);color:#3a1520;font-weight:900;cursor:pointer;min-height:48px;box-shadow:0 4px 0 #9c6f12}
+button.alt{background:var(--pan);color:var(--ink);box-shadow:0 4px 0 #160a0a;border:1px solid #6b4a3a}button.red{background:var(--red);color:#fff}button.on{outline:3px solid #fff}
 button:disabled{opacity:.4}
 input,textarea{background:var(--pan);color:var(--ink);width:100%;margin:4px 0}
 textarea{resize:none;min-height:96px}
@@ -19,12 +19,13 @@ textarea{resize:none;min-height:96px}
 .card{background:var(--pan);border-radius:16px;padding:14px;margin:10px 0}
 .chip{display:inline-block;margin:3px 6px 3px 0;padding:4px 12px;border-radius:99px;background:#7a3a58;font-weight:800}
 small{color:var(--dim)}
+.paper{background:#f3e6cc;color:#3a1520}.paper small{color:#6b4a3a}.seal{width:64px;height:64px;border-radius:50%;background:#b3202c;display:flex;align-items:center;justify-content:center;font-size:30px;color:#f3e6cc;flex:none}.code{font:900 40px 'Playfair Display',Georgia,serif;letter-spacing:3px}details summary{cursor:pointer}
 </style></head><body><main>
 <canvas id="cv" width="720" height="880"></canvas><div id="ui"></div></main>
 <script>
-const $=s=>document.querySelector(s),app=$('#ui'),cv=$('#cv'),cx=cv.getContext('2d');
+let $=s=>document.querySelector(s),app=$('#ui'),cv=$('#cv'),cx=cv.getContext('2d');
 const sid=localStorage.sid||(localStorage.sid=crypto.randomUUID?crypto.randomUUID():Math.random().toString(36).slice(2)+Date.now());
-let tEnd=0,tDone=true,pap=[],pets=0,POS={},ws,S=null,want=null,err='',pend=null,dr={},bub={},photos={},fx={obj:0,lie:0,by:''};
+const faces={};let mm=null,tEnd=0,tDone=true,pap=[],pets=0,POS={},ws,S=null,want=null,err='',pend=null,dr={},bub={},photos={},fx={obj:0,lie:0,by:''};
 const E=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const nm=id=>(S.players.find(p=>p.id==id)||{}).name||'';
 const tx=(t,o)=>ws&&ws.readyState==1&&ws.send(JSON.stringify({t,...o}));
@@ -40,32 +41,38 @@ function connect(create){ws=new WebSocket(location.origin.replace(/^http/,'ws'))
   else if(m.t=='obj'){fx.obj=Date.now();fx.by=nm(m.by);sfx('obj')}
   else if(m.t=='lie'){fx.lie=Date.now();fx.by=nm(m.by);sfx('lie')}
   else if(m.t=='news'){fx.news={t:m.text,u:Date.now()+6000};sfx('news')}else if(m.t=='hush'){fx.hush=Date.now();fx.by='';sfx('gavel2')}else if(m.t=='fine'){fx.fine=Date.now();fx.by=nm(m.to);sfx('fine')}else if(m.t=='paper'){pap.push({f:m.by,t:m.to,s:Date.now()});sfx('paper')}else if(m.t=='pet'){pets=Date.now()+2000;sfx('pet')}
+  else if(m.t=='face'){if(m.img){const i=new Image();i.onload=()=>faces[m.id]=i;i.src=m.img}else delete faces[m.id]}
   else if(m.t=='ev'){photos={};if(m.photo)sfx('paper');if(m.photo){const i=new Image();i.onload=()=>photos[m.id]=i;i.src=m.photo}}};
  ws.onclose=()=>{if(want)setTimeout(()=>connect(false),1500)}}
 setInterval(()=>tx('ping'),25000);
-function home(){const r=(new URLSearchParams(location.search).get('r')||'').toUpperCase();
- app.innerHTML=`<h1>Суд друзей</h1><p>Суд над настоящими историями. От 3 до 9 игроков, вход по ссылке.</p>
- ${err?`<div class=card>${E(err)}</div>`:''}<input id=nm maxlength=14 placeholder="Твоё имя" value="${E(localStorage.nm||'')}">
- ${r?`<div class=row><button id=jn>Войти в комнату ${E(r)}</button></div>`:`<div class=row><button id=mk>Создать комнату</button></div><div class=row><input id=cd maxlength=5 placeholder="Код комнаты"><button class=alt id=jn>Войти</button></div>`}`;
- const go=(room,c)=>{const name=$('#nm').value.trim()||'Игрок';localStorage.nm=name;want={room,name};connect(c)};
- if($('#mk'))$('#mk').onclick=()=>go(Math.random().toString(36).slice(2,7).toUpperCase(),true);
- $('#jn').onclick=()=>{const c=$('#cd')?$('#cd').value:r;if(c)go(c,false)}}
+function home(){const r=(new URLSearchParams(location.search).get('r')||'').toUpperCase();if(mm===null)mm=r?'play':'main';
+ const bk=`<div class=row><button class=alt id=bk>Назад</button></div>`;let h=err?`<div class=card>${E(err)}</div>`:'';
+ if(mm=='main')h+=`<div class=row><button id=pl>Играть</button></div><div class=row><button class=alt id=hw>Как играть</button></div><div class=row><button class=alt id=sg>Настройки</button></div>`;
+ else if(mm=='play')h+=`<input id=nm maxlength=14 placeholder="Твоё имя" value="${E(localStorage.nm||'')}">`+(r?`<div class=row><button id=jn>Войти в комнату ${E(r)}</button></div>`:`<div class=row><button id=mk>Создать комнату</button></div><div class=row><input id=cd maxlength=5 placeholder="Код комнаты"><button class=alt id=jn>Войти</button></div>`+bk);
+ else if(mm=='how')h+=`<div class="card paper"><b>Как играть</b><ol style="padding-left:20px;margin:8px 0 0"><li>Все пишут дело и наказание. Имена скрыты.</li><li>Роли идут по кругу: судья, прокурор, адвокат, обвиняемый, свидетель, журналист, потерпевший, пристав, остальные присяжные.</li><li>Судья даёт слово лампой. Говорящий пишет показание и добавляет фото.</li><li>Все могут слать эмоции, реплики, «Враньё!» и бросать бумажки.</li><li>Судья выносит вердикт и выбирает приговор.</li></ol></div>`+bk;
+ else h+=settings()+bk;
+ app.innerHTML=h+VER;
+ const g=(id,f)=>{const e=$('#'+id);if(e)e.onclick=f},go=(room,c)=>{const name=$('#nm').value.trim()||'Игрок';localStorage.nm=name;want={room,name};connect(c)};
+ g('pl',()=>{mm='play';home()});g('hw',()=>{mm='how';home()});g('sg',()=>{mm='set';home()});g('bk',()=>{mm='main';home()});
+ g('mk',()=>go(Math.random().toString(36).slice(2,7).toUpperCase(),true));g('jn',()=>{const c=$('#cd')?$('#cd').value:r;if(c)go(c,false)});bindSet()}
 const chip=p=>`<span class=chip>${E(p.name)}${p.on?'':' 💤'}</span>`;
 function pic(f){return new Promise(r=>{const i=new Image();i.onload=()=>{const k=Math.min(1,640/Math.max(i.width,i.height)),c=document.createElement('canvas');c.width=i.width*k;c.height=i.height*k;c.getContext('2d').drawImage(i,0,0,c.width,c.height);r(c.toDataURL('image/jpeg',.6))};i.src=URL.createObjectURL(f)})}
 function render(){
  app.querySelectorAll('[data-d]').forEach(e=>dr[e.id]=e.value);
- if(!S){home();app.insertAdjacentHTML('beforeend',VER+settings());bindSet();return}
+ if(!S){home();return}
  const me=S.me,R=S.roles,host=S.host==me,P=S.phase,mr=myRole(),n=S.players.length;let h='';
  if(P=='lobby'){const tk=i=>S.players.some(p=>p.hero==i&&p.id!=me),mine=(S.players.find(p=>p.id==me)||{}).hero;
-  h=`<h1>Комната ${S.code}</h1><div class=card>Отправь друзьям ссылку:<div class=row><button id=cp>Поделиться ссылкой</button></div></div>
-  <div class=card><b>Твой герой</b><div class=row>${HN.map((x,i)=>`<button class="alt ${i==mine?'on':''}" data-h=${i} ${tk(i)?'disabled':''}>${x}</button>`).join('')}</div></div>
-  <div class=card>${S.players.map(chip).join('')}<br><small>${n} из 9. Нужно минимум 3, судья тоже игрок.</small></div>
-  ${host?`<button id=bg ${n<3?'disabled':''}>Начать</button>`:'<small>Ждём, пока хозяин начнёт игру</small>'}`}
+  h=`<div class="card paper" style="display:flex;gap:12px;align-items:center"><div class=seal>⚖</div><div><div style="font:900 22px 'Playfair Display',Georgia,serif">Повестка в суд</div><small>Явка обязательна. Код комнаты:</small><div class=code>${S.code}</div></div></div>
+  <button id=cp style="width:100%">Разослать повестки</button>
+  <div class=card style="border:2px solid #6b4a2a"><b>Твой герой</b><div style="display:flex;align-items:center;justify-content:space-between"><button class=alt data-d2=-1>‹</button><canvas id=pv width=120 height=140 style="width:120px;height:140px;aspect-ratio:auto;background:none"></canvas><button class=alt data-d2=1>›</button></div>
+  <div style="text-align:center;font:900 22px 'Playfair Display',Georgia,serif">${HN[mine]}</div><div class=row><button class=alt id=fc>Своё лицо</button><button class=alt id=fr>Убрать фото</button></div><input id=ff type=file accept="image/*" hidden></div>
+  <div class=card><b>На скамье: ${n} из 9</b><br>${S.players.map(chip).join('')}<br><small>Нужно минимум 3. Судья тоже игрок.</small></div>
+  ${host?`<button id=bg style="width:100%" ${n<3?'disabled':''}>Открыть заседание</button>`:'<small>Ждём, пока хозяин откроет заседание</small>'}`}
  else if(P=='write'){h=`<h1>Напишите дело</h1>`+(S.iWrote?`<div class=card>Дело отправлено. Автора не узнает никто.<br><small>Написали ${S.wrote} из ${n}</small></div>`
   :`<div class=card>Что случилось и почему начался суд? Имя автора скрыто.<textarea id=cs data-d maxlength=220 placeholder="Напиши дело"></textarea><input id=se data-d maxlength=100 placeholder="Наказание, если виновен (по желанию)"><button id=sc>Отправить</button></div>`)+(host&&S.wrote?`<button class=alt id=sn>Начать суд сейчас</button>`:'')}
  else if(P=='end')h=`<h1>Все дела разобраны</h1><div class=card>Спасибо за суд!</div>${host?'<button id=ag>Сыграть ещё</button>':''}`;
  else{const sp=S.lamp=='none'?null:R[S.lamp],mine=sp==me,v=S.verdict;
-  h=`<div class=card><small>Дело (осталось ${S.left})</small><div style="font-size:18px;font-weight:900">${E(S.case)}</div><small>Ты — ${RN[mr]||'присяжный'}</small></div>`;
+  h=`<div class="card paper"><small>Дело (осталось ${S.left})</small><div style="font-size:18px;font-weight:900">${E(S.case)}</div><small>Ты — ${RN[mr]||'присяжный'}</small></div>`;
   if(P=='verdict')h+=`<div class=card><b style="font-size:20px">${v.guilty?'ВИНОВЕН':'НЕВИНОВЕН'}</b>${S.sentence?`<div>Приговор: ${E(S.sentence)}</div>`:''}</div>${S.opts?`<div class=card><b>Выбери приговор</b>${S.opts.map((o,i)=>`<button class=alt data-o=${i} style="width:100%;margin-top:6px">${E(o)}</button>`).join('')}</div>`:S.hasOpts?'<div class=card><small>Судья выбирает приговор…</small></div>':''}${host?'<button id=nx>Следующее дело</button>':''}`;
   else{
    if(mr=='judge')h+=`<div class=card><b>Слово даёт судья</b><div class=row><button class=red data-l=pros>Прокурору</button><button data-l=def style="background:#4da3ff">Адвокату</button><button data-l=witness style="background:#5fd18a">Свидетелю</button><button class=alt data-l=none>Тишина</button></div>
@@ -79,7 +86,7 @@ function render(){
   if(host&&P=='trial')h+=`<div class=row><button class=alt id=cl>Убрать улику</button><button class=alt id=nx>Пропустить дело</button></div>`}
  if(dr.np===undefined)dr.np=localStorage['np'+S.code]||'';app.innerHTML=h+VER+settings();for(const k in dr){const e=$('#'+k);if(e)e.value=dr[k]}
  const b=(id,f)=>{const e=$('#'+id);if(e)e.onclick=f};
- b('cp',e=>{const u=location.origin+'/?r='+S.code;(navigator.share?navigator.share({title:'Суд друзей',url:u}):navigator.clipboard.writeText(u)).then(()=>e.target.textContent='Готово!').catch(()=>{})});
+ b('cp',e=>{const u=location.origin+'/?r='+S.code;(navigator.share?navigator.share({title:'Носки в суде',url:u}):navigator.clipboard.writeText(u)).then(()=>e.target.textContent='Готово!').catch(()=>{})});
  b('bg',()=>tx('begin'));b('sn',()=>tx('startnow'));b('nx',()=>tx('next'));b('ag',()=>tx('again'));b('cl',()=>tx('clear'));
  b('gu',()=>tx('verdict',{g:1}));b('ng',()=>tx('verdict',{g:0}));b('ob',()=>tx('obj'));b('li',()=>tx('lie'));
  b('sc',()=>{const t=$('#cs').value.trim();if(t.length>=3){delete dr.cs;tx('case',{text:t,sent:$('#se').value.trim()})}});
@@ -88,8 +95,10 @@ function render(){
   tx('stmt',{when:g('f1'),where:g('f2'),what:g('f3'),who:g('f4'),photo});['f1','f2','f3','f4'].forEach(k=>delete dr[k])});
  app.querySelectorAll('[data-h]').forEach(e=>e.onclick=()=>tx('hero',{i:+e.dataset.h}));
  app.querySelectorAll('[data-l]').forEach(e=>e.onclick=()=>tx('lamp',{v:e.dataset.l}));
- app.querySelectorAll('[data-e]').forEach(e=>e.onclick=()=>tx('say',{text:e.dataset.e}));b('hu',()=>tx('hush'));b('ns',()=>{const t=$('#nw').value.trim();if(t){delete dr.nw;tx('news',{text:t})}});app.querySelectorAll('[data-f]').forEach(e=>e.onclick=()=>tx('fine',{to:e.dataset.f}));app.querySelectorAll('[data-p]').forEach(e=>e.onclick=()=>tx('paper',{to:e.dataset.p}));const np=$('#np');if(np)np.oninput=()=>localStorage['np'+S.code]=np.value;app.querySelectorAll('[data-o]').forEach(e=>e.onclick=()=>tx('pick',{i:+e.dataset.o}));bindSet()}
-const VER='<p><small>версия: этап 3</small></p>',cfg=JSON.parse(localStorage.cfg||'{"m":1,"mv":0.3,"sv":0.7}');let A=null,mi=0,nxt=0,step=0;
+ app.querySelectorAll('[data-e]').forEach(e=>e.onclick=()=>tx('say',{text:e.dataset.e}));b('hu',()=>tx('hush'));b('ns',()=>{const t=$('#nw').value.trim();if(!t&&!inked)return;delete dr.nw;tx('news',{text:t,img:inked?dc.toDataURL('image/jpeg',.7):null});clearDc()});app.querySelectorAll('[data-f]').forEach(e=>e.onclick=()=>tx('fine',{to:e.dataset.f}));app.querySelectorAll('[data-p]').forEach(e=>e.onclick=()=>tx('paper',{to:e.dataset.p}));const np=$('#np');if(np)np.oninput=()=>localStorage['np'+S.code]=np.value;app.querySelectorAll('[data-o]').forEach(e=>e.onclick=()=>tx('pick',{i:+e.dataset.o}));bindFolder();
+ app.querySelectorAll('[data-d2]').forEach(e=>e.onclick=()=>{const d=+e.dataset.d2;let i=S.players.find(p=>p.id==S.me).hero;for(let k=0;k<7;k++){i=(i+d+7)%7;if(!S.players.some(p=>p.hero==i&&p.id!=S.me)){tx('hero',{i});return}}});
+ b('fc',()=>$('#ff').click());b('fr',()=>tx('face',{img:null}));const ff=$('#ff');if(ff)ff.onchange=async()=>{const f=ff.files[0];if(f)tx('face',{img:await sq(f)})};bindSet()}
+const VER='<p><small>версия: этап 4</small></p>',cfg=JSON.parse(localStorage.cfg||'{"m":1,"mv":0.3,"sv":0.7}');let A=null,mi=0,nxt=0,step=0;
 const settings=()=>`<div class=card><b>Звук</b><div class=row><button class=alt id=mt>Музыка: ${cfg.m?'вкл':'выкл'}</button></div><label>Музыка<input type=range id=mv min=0 max=100 value="${cfg.mv*100}"></label><label>Эффекты<input type=range id=sv min=0 max=100 value="${cfg.sv*100}"></label></div>`;
 function aud(){if(A){A.c.resume&&A.c.resume();return}const c=new(window.AudioContext||window.webkitAudioContext)(),mg=c.createGain(),sg=c.createGain(),nb=c.createBuffer(1,c.sampleRate,c.sampleRate),d=nb.getChannelData(0);
  for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;mg.gain.value=0;sg.gain.value=cfg.sv;mg.connect(c.destination);sg.connect(c.destination);A={c,mg,sg,nb};if(cfg.m)musicStart()}
@@ -112,17 +121,25 @@ function bindSet(){const sv=()=>localStorage.cfg=JSON.stringify(cfg),mt=$('#mt')
  if(mv)mv.oninput=()=>{cfg.mv=mv.value/100;sv();if(A&&mi)A.mg.gain.setTargetAtTime(cfg.mv,A.c.currentTime,.05)};
  if(sx)sx.oninput=()=>{cfg.sv=sx.value/100;sv();if(A)A.sg.gain.value=cfg.sv}}
 document.addEventListener('pointerdown',aud);
+let fo=false,pc='#1b1b1b',inked=false;const dc=document.createElement('canvas');dc.width=300;dc.height=200;
+function clearDc(){const g=dc.getContext('2d');g.fillStyle='#fff';g.fillRect(0,0,300,200);inked=false;const w=$('#dw');if(w)w.getContext('2d').drawImage(dc,0,0)}clearDc();
+function sq(f){return new Promise(r=>{const i=new Image();i.onload=()=>{const m=Math.min(i.width,i.height),c=document.createElement('canvas');c.width=c.height=128;c.getContext('2d').drawImage(i,(i.width-m)/2,(i.height-m)/2,m,m,0,0,128,128);r(c.toDataURL('image/jpeg',.7))};i.src=URL.createObjectURL(f)})}
+function bindFolder(){const d=$('#fo');if(d)d.ontoggle=()=>fo=d.open;app.querySelectorAll('[data-c]').forEach(e=>e.onclick=()=>pc=e.dataset.c);const dx=$('#dx');if(dx)dx.onclick=clearDc;
+ const w=$('#dw');if(!w)return;const g=w.getContext('2d'),q=dc.getContext('2d');g.drawImage(dc,0,0);let last=null;const pt=e=>{const r=w.getBoundingClientRect();return[(e.clientX-r.left)/r.width*300,(e.clientY-r.top)/r.height*200]};
+ w.onpointerdown=e=>{last=pt(e);w.setPointerCapture(e.pointerId)};w.onpointerup=()=>last=null;
+ w.onpointermove=e=>{if(!last)return;const p=pt(e);for(const c of[g,q]){c.strokeStyle=pc;c.lineWidth=4;c.lineCap='round';c.beginPath();c.moveTo(last[0],last[1]);c.lineTo(p[0],p[1]);c.stroke()}last=p;inked=true}}
 function extras(mr){let x='';if(S.phase!='trial')return x;const o=S.players.filter(p=>p.id!=S.me),bt=a=>o.map(p=>`<button class=alt data-${a}=${p.id}>${E(p.name)}</button>`).join('');
  if(mr=='judge')x+=`<div class=card><b>Штраф на 30 секунд</b><div class=row>${bt('f')}</div><button class=alt id=hu style="width:100%">Тишина в зале!</button></div>`;
  if(mr=='bailiff')x+=`<button class=alt id=hu style="width:100%;margin:8px 0">Тишина в зале!</button>`;
- if(mr=='journalist'){const k=3-S.news.length;x+=k>0?`<div class=card><b>Срочные новости (осталось ${k})</b><input id=nw data-d maxlength=100 placeholder="Заголовок"><button id=ns>Опубликовать</button></div>`:`<div class=card><small>Новости закончились</small></div>`}
  if(mr!='judge')x+=`<div class=card><b>Бросить бумажку</b><div class=row>${bt('p')}</div></div>`;
- if(['judge','pros','def'].includes(mr))x+=`<div class=card><b>Блокнот</b> <small>виден только тебе</small><textarea id=np data-d maxlength=600 placeholder="Заметки"></textarea></div>`;
+ const k=3-S.news.length;
+ x+=`<details class=card id=fo ${fo?'open':''}><summary><b>📁 Папка</b></summary><div style="margin-top:8px"><small>Заметки видны только тебе</small><textarea id=np data-d maxlength=600 placeholder="Заметки"></textarea>
+ ${mr=='journalist'?(k>0?`<b>Новости (осталось ${k})</b><canvas id=dw width=300 height=200 style="width:100%;aspect-ratio:auto;background:#fff;border-radius:12px;touch-action:none"></canvas><div class=row>${['#1b1b1b','#d62f2f','#2f6fd6','#2fa84f'].map(c=>`<button data-c=${c} style="background:${c};min-width:40px"></button>`).join('')}<button class=alt id=dx>Стереть</button></div><input id=nw data-d maxlength=100 placeholder="Заголовок"><button id=ns style="width:100%">Показать суду</button>`:'<small>Новости закончились</small>'):''}</div></details>`;
  return x}
 const H=[{c:'#f2a65a',a:'p',m:'#ffe8c8',st:1},{c:'#9aa3b5',a:'l',m:'#b3bacb'},{c:'#2a2a3c',a:'p',m:'#fff',bow:1},{k:'#f1c39b',h:'#5a3b2e',sh:'#5fd1b0',gl:1,fat:1},{k:'#e9b992',h:'#2b2438',sh:'#6fb1ff'},{c:'#8d90a6',a:'r',m:'#f1f2f7',mask:1},{c:'#9ea3b8',a:'r',m:'#f4f4fa',lem:1}];
 const el=(a,b,rx,ry,f)=>{cx.fillStyle=f;cx.beginPath();cx.ellipse(a,b,rx,ry,0,0,7);cx.fill()};
 const tri=(a,b,c,d,e,f)=>{cx.beginPath();cx.moveTo(a,b);cx.lineTo(c,d);cx.lineTo(e,f);cx.fill()};
-function hero(i,x,y,s,t,sp,wig){const d=H[(i||0)%7];cx.save();cx.translate(x,y+(sp?Math.sin(t/110)*3:Math.sin(t/700+x)*1.2));cx.scale(s,s);
+function hero(i,x,y,s,t,sp,wig,face){const d=H[(i||0)%7];cx.save();cx.translate(x,y+(sp?Math.sin(t/110)*3:Math.sin(t/700+x)*1.2));cx.scale(s,s);
  if(d.k){el(0,58,d.fat?44:28,34,d.sh);el(0,0,24,24,d.k);cx.fillStyle=d.h;cx.beginPath();cx.ellipse(0,-10,25,15,0,Math.PI,0);cx.fill();
   if(d.gl){cx.strokeStyle='#2b2438';cx.lineWidth=2.5;cx.beginPath();cx.arc(-10,-1,8,0,7);cx.moveTo(18,-1);cx.arc(10,-1,8,0,7);cx.stroke()}}
  else{el(0,58,28,32,d.c);cx.fillStyle=d.c;
@@ -131,8 +148,8 @@ function hero(i,x,y,s,t,sp,wig){const d=H[(i||0)%7];cx.save();cx.translate(x,y+(
   if(d.mask){cx.fillStyle='#33344a';cx.fillRect(-27,-9,54,13)}
   if(d.st){cx.strokeStyle='#c9782f';cx.lineWidth=3;cx.beginPath();cx.moveTo(0,-26);cx.lineTo(0,-17);cx.moveTo(-8,-24);cx.lineTo(-6,-16);cx.moveTo(8,-24);cx.lineTo(6,-16);cx.stroke()}
   if(d.bow){cx.fillStyle='#ff7b9c';tri(0,32,-13,25,-13,39);tri(0,32,13,25,13,39)}}
- const bl=(t%4000)>3850?.8:4.5;el(-9,-1,4.5,bl,'#fff');el(9,-1,4.5,bl,'#fff');el(-9,-1,2,Math.min(2.2,bl),'#1a1a24');el(9,-1,2,Math.min(2.2,bl),'#1a1a24');
- el(0,13,4,sp?2+Math.abs(Math.sin(t/90))*3:1,'#5b1a1a');
+ if(face){cx.save();cx.beginPath();cx.arc(0,0,25,0,7);cx.clip();const mm2=Math.min(face.width,face.height);cx.drawImage(face,(face.width-mm2)/2,(face.height-mm2)/2,mm2,mm2,-25,-25,50,50);cx.restore();cx.strokeStyle='#e9b43a';cx.lineWidth=2;cx.beginPath();cx.arc(0,0,25,0,7);cx.stroke()}else{const bl=(t%4000)>3850?.8:4.5;el(-9,-1,4.5,bl,'#fff');el(9,-1,4.5,bl,'#fff');el(-9,-1,2,Math.min(2.2,bl),'#1a1a24');el(9,-1,2,Math.min(2.2,bl),'#1a1a24');
+ el(0,13,4,sp?2+Math.abs(Math.sin(t/90))*3:1,'#5b1a1a')}
  if(wig){cx.fillStyle='#f4efe6';cx.beginPath();cx.ellipse(0,-14,30,16,0,Math.PI,0);cx.fill();el(-30,-4,7,9,'#f4efe6');el(30,-4,7,9,'#f4efe6');}
  cx.restore()}
 function wrap(s,n){const o=[];let l='';for(const w of String(s).split(' ')){if((l+' '+w).length>n){o.push(l);l=w}else l=l?l+' '+w:w}o.push(l);return o.slice(0,3)}
@@ -140,9 +157,11 @@ function bubble(x,y,t){cx.font='800 10.5px Nunito,sans-serif';const L=wrap(t,22)
  const bx=Math.max(4,Math.min(356-w,x-w/2));cx.fillStyle='#fff';cx.fillRect(bx,y-hh,w,hh);cx.fillStyle='#fff';tri(x-5,y,x+5,y,x,y+7);
  cx.fillStyle='#3b1a2e';cx.textAlign='center';L.forEach((l,i)=>cx.fillText(l,bx+w/2,y-hh+14+i*13))}
 function draw(t){requestAnimationFrame(draw);const t0=Date.now();cx.setTransform(2,0,0,2,0,0);cx.textAlign='center';
- cx.fillStyle='#5b2340';cx.fillRect(0,0,360,440);cx.fillStyle='#7a4a36';cx.fillRect(0,196,360,104);cx.fillStyle='#b57a5a';cx.fillRect(0,194,360,5);cx.fillStyle='#3b1d2f';cx.fillRect(0,300,360,140);
- cx.fillStyle='#8fc7ea';[18,326].forEach(x=>{cx.fillRect(x,40,16,70);cx.beginPath();cx.arc(x+8,40,8,Math.PI,0);cx.fill()});
- cx.fillStyle='#f7f3ff';cx.fillRect(60,12,240,122);cx.fillStyle='#e8dcc8';cx.fillRect(68,18,224,88);
+ cx.fillStyle='#4a1c28';cx.fillRect(0,0,360,440);cx.fillStyle='#7a4a2e';cx.fillRect(0,196,360,104);cx.fillStyle='#c9923a';cx.fillRect(0,194,360,5);cx.fillStyle='#2e1218';cx.fillRect(0,300,360,140);cx.fillStyle='#7e1d2d';cx.beginPath();cx.moveTo(150,300);cx.lineTo(210,300);cx.lineTo(250,420);cx.lineTo(110,420);cx.fill();
+ [18,326].forEach(x=>{const lx=x<100?48:312;cx.fillStyle='#c9923a';cx.fillRect(x-3,34,22,78);cx.beginPath();cx.arc(x+8,36,11,Math.PI,0);cx.fill();cx.fillStyle='#9fd0ee';cx.fillRect(x,40,16,70);cx.beginPath();cx.arc(x+8,40,8,Math.PI,0);cx.fill();cx.fillStyle='rgba(255,216,107,.35)';cx.beginPath();cx.arc(lx,72,12,0,7);cx.fill();cx.fillStyle='#ffd86b';cx.beginPath();cx.arc(lx,72,4,0,7);cx.fill()});
+ if(S){cx.fillStyle='#f3e6cc';cx.fillRect(60,12,240,122);cx.fillStyle='#e0cfae';cx.fillRect(68,18,224,88)}
+ if(!S){hero(1,180,150,1.15,t,false,true);cx.fillStyle='#8a5a3a';cx.fillRect(105,200,150,44);cx.fillStyle='#c9923a';cx.fillRect(95,194,170,10);cx.fillStyle='#2e1218';cx.fillRect(150,212,60,16);cx.fillStyle='#e9b43a';cx.font='800 10px Nunito,sans-serif';cx.fillText('Судья',180,224);
+  [[70,4],[180,5],[290,6]].forEach(([x,i])=>hero(i,x,392,.6,t,false));cx.fillStyle='#e9b43a';cx.font="900 34px 'Playfair Display',Georgia,serif";cx.fillText('Носки',180,56);cx.fillText('в суде',180,92)}
  if(S){const R=S.roles,pj=S.proj,ph=pj&&photos[pj.id],lob=!['trial','verdict'].includes(S.phase),pos={};
   if(ph){const k=Math.min(224/ph.width,88/ph.height);cx.drawImage(ph,180-ph.width*k/2,62-ph.height*k/2,ph.width*k,ph.height*k)}
   else{cx.fillStyle='#8a7a6a';cx.font='700 12px Nunito,sans-serif';cx.fillText(pj?'Без фото':'Улик пока нет',180,66)}
@@ -152,7 +171,7 @@ function draw(t){requestAnimationFrame(draw);const t0=Date.now();cx.setTransform
    else if(p.id==R.accused)pos[p.id]=[250,272,.75,'Обвиняемый'];else if(p.id==R.def)pos[p.id]=[320,272,.75,'Адвокат'];else if(p.id==R.witness)pos[p.id]=[180,326,.7,'Свидетель'];else if(p.id==R.journalist)pos[p.id]=[70,172,.65,'Журналист'];else if(p.id==R.bailiff)pos[p.id]=[290,172,.65,'Пристав'];else jur.push(p)});
   jur.forEach((p,i)=>pos[p.id]=[360*(i+1)/(jur.length+1),lob?340:392,lob?.8:.6,'']);
   const spk=S.lamp=='none'?null:R[S.lamp];
-  POS=pos;S.players.forEach(p=>{const[x,y,s,r]=pos[p.id],fl=pap.some(a=>a.t==p.id&&t0-a.s>550)?Math.sin(t/20)*4:0;hero(p.hero,x+fl,y,s,t,p.id==spk&&!lob,r=='Судья');if(p.penAt>t0){cx.fillStyle='#e4572e';tri(x-14*s,y-26*s,x+14*s,y-26*s,x,y-72*s)}});
+  POS=pos;S.players.forEach(p=>{const[x,y,s,r]=pos[p.id],fl=pap.some(a=>a.t==p.id&&t0-a.s>550)?Math.sin(t/20)*4:0;hero(p.hero,x+fl,y,s,t,p.id==spk&&!lob,r=='Судья',faces[p.id]);if(p.penAt>t0){cx.fillStyle='#e4572e';tri(x-14*s,y-26*s,x+14*s,y-26*s,x,y-72*s)}});
   if(!lob){if(R.witness){cx.fillStyle='#94624a';cx.fillRect(148,342,64,34);cx.fillStyle='#b57a5a';cx.fillRect(144,338,72,8)}cx.fillStyle='#94624a';cx.fillRect(126,200,108,40);cx.fillStyle='#b57a5a';cx.fillRect(118,194,124,10);
    [[4,150],[210,146]].forEach(([x,w])=>{cx.fillStyle='#b57a5a';cx.fillRect(x,296,w,10);cx.fillStyle='#94624a';cx.fillRect(x+4,304,w-8,40)});
    [[75,'pros','#ff4d4d',301],[285,'def','#4da3ff',301],[180,'witness','#5fd18a',347]].forEach(([x,k,c,y])=>{cx.fillStyle=S.lamp==k?c:'#3a2a33';cx.beginPath();cx.arc(x,y,6,0,7);cx.fill()})}
@@ -161,6 +180,7 @@ function draw(t){requestAnimationFrame(draw);const t0=Date.now();cx.setTransform
   if(S.phase=='verdict'&&S.verdict){const g=S.verdict.guilty,w=g?'ВИНОВЕН':'НЕВИНОВЕН';cx.save();cx.translate(180,150);cx.rotate(-.15);cx.font='900 34px Nunito,sans-serif';cx.fillStyle=g?'#e4572e':'#4cb5ae';cx.strokeStyle='#fff';cx.lineWidth=4;cx.strokeText(w,0,0);cx.fillText(w,0,0);cx.restore()}
   [['obj','ПРОТЕСТУЮ!','#e4572e'],['lie','ВРАНЬЁ!','#f2b32c'],['hush','ТИШИНА!','#f2b32c'],['fine','ШТРАФ','#e4572e']].forEach(([k,w,c])=>{const d=Date.now()-fx[k];if(d<1600){cx.save();cx.translate(180+Math.sin(d/25)*3,230);cx.rotate(.1);cx.font='900 38px Nunito,sans-serif';
    cx.fillStyle=c;cx.strokeStyle='#fff';cx.lineWidth=5;cx.strokeText(w,0,0);cx.fillText(w,0,0);cx.font='800 12px Nunito,sans-serif';cx.fillStyle='#fff';cx.fillText(fx.by,0,18);cx.restore()}})}
+ {const pv=$('#pv');if(pv&&S&&S.phase=='lobby'){const m0=cx,me=S.players.find(p=>p.id==S.me)||{};cx=pv.getContext('2d');cx.setTransform(1,0,0,1,0,0);cx.clearRect(0,0,120,140);hero(me.hero,60,56,1.2,t,false,false,faces[S.me]);cx=m0}}
  if(S&&S.phase=='trial'&&S.lamp!='none'){const l=Math.max(0,tEnd-t0);cx.fillStyle=l?'#fbf1de':'#ff6b4a';cx.font='900 13px Nunito,sans-serif';cx.fillText(l?'⏳ '+Math.floor(l/60000)+':'+String(Math.floor(l/1000)%60).padStart(2,'0'):'Время вышло',180,292);if(!l&&!tDone){tDone=true;sfx('timeup')}}
  const dx=334,dy=398;el(dx,dy+6,15,10,'#b07a4a');el(dx-13,dy-4,9,8,'#b07a4a');el(dx-19,dy-8,3,6,'#7a4a2a');el(dx-16,dy-6,1.3,1.3,'#1a1a24');
  cx.strokeStyle='#b07a4a';cx.lineWidth=4;cx.lineCap='round';cx.beginPath();cx.moveTo(dx+13,dy+2);cx.lineTo(dx+22,dy-6+Math.sin(t/120)*5);cx.stroke();
