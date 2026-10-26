@@ -13,11 +13,11 @@ function send(R){for(const p of R.players)if(p.on&&p.ws.readyState==1)p.ws.send(
  ms:R.lamp=='none'?0:Math.max(0,(R.lampEnd||0)-Date.now()),sopts:R.roles.judge==p.id?R.sopts:null,hasOpts:!!R.sopts,sentence:R.sentence,verdict:R.verdict,
  wrote:R.wrote.length,iWrote:R.wrote.includes(p.id),left:R.cases.length,
  prepMs:R.phase=='prep'?Math.max(0,R.prepEnd-Date.now()):0,charge:R.phase=='prep'?null:R.charge,acc:R.phase=='prep'?null:R.accused,picked:Object.keys(R.picks),hasCharge:!!R.charge,
- hand:R.hands[p.id]||[],pcard:R.pcard,wit:R.wit||null,wq:R.wq||null,wans:R.wans||null,wdone:R.wans&&R.wans.done?Date.now()-R.wans.at:-1,balls:p.balls==null?3:p.balls,bcd:Math.max(0,5000-(Date.now()-(p.lp||0))),muLeft:2-(R.muteUses||0),me:p.id}}))}
+ hand:R.hands[p.id]||[],pcard:R.pcard,wit:R.wit||null,wq:R.wq||null,wans:R.wans||null,wdone:R.wans&&R.wans.done?Date.now()-R.wans.at:-1,balls:p.balls==null?3:p.balls,bcd:Math.max(0,5000-(Date.now()-(p.lp||0))),muLeft:2-(R.muteUses||0),deckN:R.deck?{p:R.deck.pros.length,d:R.deck.def.length}:null,me:p.id}}))}
 function trial(R){const n=R.players.length,seq=R.opts.assign=='random'?shuffle(R.players):R.players.map((_,i)=>R.players[(R.round+i)%n]);R.roles={};
  ROLES.filter(r=>({witness:R.opts.wit,journalist:R.opts.jour,bailiff:R.opts.bail})[r]!==0).forEach((r,i)=>{if(r&&i<n)R.roles[r]=seq[i].id});
  Object.assign(R,{case:R.cases.pop(),lamp:'none',proj:null,photo:null,log:[],news:[],verdict:null,sopts:null,sentence:null,lampEnd:0,charge:null,accused:null,picks:{},pcard:null,wit:null,wq:null,wans:null,muteUses:0,phase:'prep',prepEnd:Date.now()+45000});
- R.players.forEach(p=>{p.pen=0;p.mu=0;p.st=0;p.balls=3});R.hands={[R.roles.pros]:shuffle(POOL.pros).slice(0,10),[R.roles.def]:shuffle(POOL.def).slice(0,10)};
+ R.players.forEach(p=>{p.pen=0;p.mu=0;p.st=0;p.balls=3});const dk=k=>shuffle(R.deck?R.deck[k]:[]).concat(shuffle(POOL[k])).slice(0,10);R.hands={[R.roles.pros]:dk('pros'),[R.roles.def]:dk('def')};
  all(R,{t:'ev',photo:null});clearTimeout(R.tm);R.tm=setTimeout(()=>{finishPrep(R)},45000)}
 function finishPrep(R){if(R.phase!='prep')return;clearTimeout(R.tm);
  if(!R.charge)R.charge={who:rnd(cands(R)).id,text:rnd(CRIMES)};
@@ -28,6 +28,9 @@ const chk=R=>{if(R.charge&&R.picks[R.roles.pros]&&R.picks[R.roles.def])finishPre
 function go(R){R.cases=shuffle(R.pending);R.round=0;trial(R)}
 const H={
  opts(R,p,m){if(R.host!=p.id||R.phase!='lobby')return;const o=m.o||{},c=R.opts,pk=(k,a)=>{if(a.includes(o[k]))c[k]=o[k]};if(+o.max>=3)c.max=Math.max(R.players.length,Math.min(9,+o.max|0));pk('theme',['plain','royal','space']);pk('mode',['classic','compose','live']);pk('assign',['circle','random']);['wit','jour','bail'].forEach(k=>{if(k in o)c[k]=o[k]?1:0});if([0,30,60].includes(+o.speech))c.speech=+o.speech},
+ deck(R,p,m){if(R.host!=p.id||R.phase!='lobby')return;const L=String(m.text||'').split('\n').map(x=>str(x,86)).filter(Boolean).slice(0,40),D={pros:[],def:[]};
+  L.forEach((l,i)=>{const mm=l.match(/^(П|З):\s*(.*)$/i),body=(mm?mm[2]:l).slice(0,80),[t,d]=body.split('|');if(body.length<3||!(t||'').trim())return;const c=k=>({id:k[0]+'c'+i,t:t.trim().slice(0,80),d:(d||'').trim().slice(0,80),w:2});if(!mm||mm[1].toUpperCase()=='П')D.pros.push(c('pros'));if(!mm||mm[1].toUpperCase()=='З')D.def.push(c('def'))});
+  R.deck=D.pros.length||D.def.length?D:null},
  ready(R,p){if(R.phase!='lobby'||R.host==p.id)return;const i=R.ready.indexOf(p.id);if(i<0)R.ready.push(p.id);else R.ready.splice(i,1)},
  face(R,p,m){const im=typeof m.img=='string'&&m.img.startsWith('data:image/')&&m.img.length<60000?m.img:null;if(!rl(p,'lf',800)){p.face=im;all(R,{t:'face',id:p.id,img:im})}},
  hero(R,p,m){const i=+m.i;if(i>=0&&i<7&&!R.players.some(q=>q!=p&&q.hero==i))p.hero=i},
